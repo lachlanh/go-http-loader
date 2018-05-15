@@ -25,7 +25,8 @@ func main() {
 	urlRaw := flag.Args()[0]
 	fmt.Println("urlRaw : ", urlRaw)
 	client := &http.Client{}
-	runUrl(urlRaw, *num, client)
+	result := runUrl(urlRaw, *num, client)
+	reportResult(result)
 
 }
 
@@ -47,13 +48,15 @@ type runResult struct {
 func runUrl(urlRaw string, it int, client HttpClient) runResult {
 	// TODO LH all the dynamic stuff and then collection of the results
 	var result runResult
-	result.responses = make([]response, it)
+	result.responses = make([]response, 0)
+
 	for i := 0; i < it; i++ {
 		start := time.Now()
 		resp, err := client.Get(urlRaw)
 		elapsed := time.Since(start)
 		if err != nil {
 			result.errorCount++
+			fmt.Println("err : ", err)
 			continue // TODO LH not sure how I feel about this
 		}
 		result.successCount++
@@ -62,10 +65,18 @@ func runUrl(urlRaw string, it int, client HttpClient) runResult {
 			duration: elapsed,
 		}
 		result.responses = append(result.responses, response)
-		fmt.Println("err : ", err)
-		fmt.Println("resp : ", resp)
-		fmt.Println("elapsed : ", elapsed)
+
 	}
 
 	return result
+}
+
+func reportResult(result runResult) {
+	fmt.Println("Success Count : ", result.successCount)
+	fmt.Println("Error Count : ", result.errorCount)
+	for _, response := range result.responses {
+		fmt.Println("resp status : ", response.status)
+		fmt.Println("elapsed : ", response.duration)
+	}
+
 }
