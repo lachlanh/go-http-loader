@@ -24,9 +24,13 @@ func main() {
 
 	urlRaw := flag.Args()[0]
 	fmt.Println("urlRaw : ", urlRaw)
+	client := &http.Client{}
+	runUrl(urlRaw, *num, client)
 
-	runUrl(urlRaw, *num)
+}
 
+type HttpClient interface {
+	Get(url string) (*http.Response, error)
 }
 
 type response struct {
@@ -40,13 +44,13 @@ type runResult struct {
 	responses    []response
 }
 
-func runUrl(urlRaw string, it int) runResult {
+func runUrl(urlRaw string, it int, client HttpClient) runResult {
 	// TODO LH all the dynamic stuff and then collection of the results
 	var result runResult
 	result.responses = make([]response, it)
 	for i := 0; i < it; i++ {
 		start := time.Now()
-		resp, err := http.Get(urlRaw)
+		resp, err := client.Get(urlRaw)
 		elapsed := time.Since(start)
 		if err != nil {
 			result.errorCount++
