@@ -19,8 +19,8 @@ func main() {
 	fmt.Println("timeLimit : ", *timeLimit)
 	fmt.Println("args : ", flag.Args())
 
-	if timeLimit != nil {
-		*num = 50000 //similar to ab
+	if *timeLimit > 0 {
+		*num = 0
 	}
 
 	if len(flag.Args()) == 0 {
@@ -54,12 +54,26 @@ type runResult struct {
 	responses     []response
 }
 
+func checkExit(iteration int, totalIterations int, timeLimit time.Duration, startTime time.Time) bool {
+
+	if totalIterations > 0 && iteration >= totalIterations {
+		return true
+	}
+	if timeLimit > 0 && time.Since(startTime) >= timeLimit {
+		fmt.Println("time limit hit, break")
+		return true
+	}
+	return false
+}
+
 func runUrl(urlRaw string, it int, timeLimit time.Duration, client HttpClient) runResult {
 	// TODO LH all the dynamic stuff and then collection of the results
 	var result runResult
 	result.responses = make([]response, 0)
 	result.startTime = time.Now()
-	for i := 0; i < it; i++ {
+
+	exitLoop := false
+	for !exitLoop {
 		result.totalRequests++
 		start := time.Now()
 		resp, err := client.Get(urlRaw)
@@ -72,14 +86,11 @@ func runUrl(urlRaw string, it int, timeLimit time.Duration, client HttpClient) r
 				status:   resp.StatusCode,
 				duration: elapsed,
 			}
-			//resp.Close()
 			result.responses = append(result.responses, response)
-		}
-		if time.Since(result.startTime) >= timeLimit {
-			fmt.Println("time limit hit, break")
-			break
+			resp.Body.Close()
 		}
 
+		exitLoop = checkExit(result.totalRequests, it, timeLimit, result.startTime)
 	}
 	result.endTime = time.Now()
 	return result
