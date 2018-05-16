@@ -1,23 +1,34 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
+	"plugin"
 	"time"
 )
 
 var num = flag.Int("n", 1, "number of requests")
 var timeLimit = flag.Duration("t", 0, "duration of how long to test")
+var requestGenerator func() string
+
+func init() {
+	flag.Parse()
+	buildPlugin()
+	loadPlugin()
+}
 
 func main() {
 	//flag.PrintDefaults()
-	flag.Parse()
+	// flag.Parse()
 
 	fmt.Println("num :", *num)
 	fmt.Println("timeLimit : ", *timeLimit)
 	fmt.Println("args : ", flag.Args())
+	fmt.Println("plugin request generator : ", requestGenerator())
 
 	if *timeLimit > 0 {
 		*num = 0
@@ -34,6 +45,32 @@ func main() {
 	result := runUrl(urlRaw, *num, *timeLimit, client)
 	reportResult(result)
 
+}
+
+func buildPlugin() {
+	cmd := exec.Command("go", "build", "-buildmode=plugin", "request_plg.go")
+	//defer os.Remove("request_plg.so")
+	var out, errout bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &errout
+	err := cmd.Run()
+	if err != nil {
+		fmt.Printf("err : %q\n", errout.String())
+		panic(err)
+	}
+}
+
+func loadPlugin() {
+	p, err := plugin.Open("request_plg.so")
+	if err != nil {
+		panic(err)
+	}
+
+	f, err := p.Lookup("NewRequestBody")
+	if err != nil {
+		panic(err)
+	}
+	requestGenerator = f.(func() string)
 }
 
 type HttpClient interface {

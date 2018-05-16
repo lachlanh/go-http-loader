@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
+	"plugin"
 	"testing"
 	"time"
 
@@ -34,4 +38,34 @@ func TestCheckTiming(t *testing.T) {
 	}
 	assert.Fail(t, "fail")
 
+}
+
+func TestLoadPlugin(t *testing.T) {
+	cmd := exec.Command("go", "build", "-buildmode=plugin", "request_plg.go")
+	defer os.Remove("request_plg.so")
+	var out, errout bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &errout
+	err := cmd.Run()
+	if err != nil {
+		fmt.Printf("err : %q\n", errout.String())
+		panic(err)
+	}
+	fmt.Printf("out : %q\n", out.String())
+
+	p, err := plugin.Open("request_plg.so")
+	if err != nil {
+		panic(err)
+	}
+	v, err := p.Lookup("V")
+	if err != nil {
+		panic(err)
+	}
+	f, err := p.Lookup("F")
+	if err != nil {
+		panic(err)
+	}
+	*v.(*int) = 7
+	f.(func())()
+	assert.Fail(t, "fail")
 }
