@@ -8,12 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"plugin"
+	"strings"
 	"time"
 )
 
 var num = flag.Int("n", 1, "number of requests")
 var timeLimit = flag.Duration("t", 0, "duration of how long to test")
-var requestGenerator func() string
+var requestBody func() string
 
 func init() {
 	flag.Parse()
@@ -28,7 +29,7 @@ func main() {
 	fmt.Println("num :", *num)
 	fmt.Println("timeLimit : ", *timeLimit)
 	fmt.Println("args : ", flag.Args())
-	fmt.Println("plugin request generator : ", requestGenerator())
+	fmt.Println("plugin request generator : ", requestBody())
 
 	if *timeLimit > 0 {
 		*num = 0
@@ -70,11 +71,12 @@ func loadPlugin() {
 	if err != nil {
 		panic(err)
 	}
-	requestGenerator = f.(func() string)
+	requestBody = f.(func() string)
 }
 
 type HttpClient interface {
 	Get(url string) (*http.Response, error)
+	Do(req *http.Request) (*http.Response, error)
 }
 
 type response struct {
@@ -113,7 +115,8 @@ func runUrl(urlRaw string, it int, timeLimit time.Duration, client HttpClient) r
 	for !exitLoop {
 		result.totalRequests++
 		start := time.Now()
-		resp, err := client.Get(urlRaw)
+		request, _ := http.NewRequest("POST", urlRaw, strings.NewReader(requestBody()))
+		resp, err := client.Do(request) //client.Get(urlRaw)
 		elapsed := time.Since(start)
 		if err != nil {
 			result.errorCount++
